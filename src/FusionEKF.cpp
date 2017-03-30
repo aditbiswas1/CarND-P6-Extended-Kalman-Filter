@@ -74,16 +74,21 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
       /**
       Convert radar from polar to cartesian coordinates and initialize state.
       */
-      float x = measurement_pack.raw_measurements_[0] * cos(measurement_pack.raw_measurements_[1]);
-      float y = measurement_pack.raw_measurements_[0] * sin(measurement_pack.raw_measurements_[1]);
 
-      ekf_.x_ << x, y, 0, 0;
+      const double rho = measurement_pack.raw_measurements_(0,0);
+      const double phi = measurement_pack.raw_measurements_(1,0);
+      const double rho_dot = measurement_pack.raw_measurements_(2,0);
+      float x = rho * cos(phi);
+      float y = rho * sin(phi);
+      float vx = rho_dot * cos(phi);
+      float vy = rho_dot * sin(phi);
+      ekf_.x_ << x, y, vx, vy;
     }
     else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
       /**
       Initialize state.
       */
-      ekf_.x_ << measurement_pack.raw_measurements_[0], measurement_pack.raw_measurements_[1], 0, 0;
+      ekf_.x_ << measurement_pack.raw_measurements_(0,0), measurement_pack.raw_measurements_(1,0), 0.0, 0.0;
     }
 
     // done initializing, no need to predict or update
@@ -101,7 +106,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
       - Time is measured in seconds.
      * Update the process noise covariance matrix.
    */
-  float dt = (measurement_pack.timestamp_ - previous_timestamp_) / 1000000.0; //dt - expressed in seconds
+  float dt = (measurement_pack.timestamp_ - previous_timestamp_) / 1.0e6; //dt - expressed in seconds
   previous_timestamp_ = measurement_pack.timestamp_;
 
   ekf_.F_(0,2) = dt;
@@ -140,7 +145,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
     Hj_ = tools.CalculateJacobian(ekf_.x_);
     ekf_.H_ = Hj_;
     ekf_.R_ = R_radar_;
-    ekf_.Update(measurement_pack.raw_measurements_);
+    ekf_.UpdateEKF(measurement_pack.raw_measurements_);
   } else {
     // Laser updates
     ekf_.H_ = H_laser_;
